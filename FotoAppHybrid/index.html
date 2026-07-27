@@ -1,31 +1,42 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>Ionic App</title>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Einfache Foto App</title>
+    <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+    <header>
+        <h1>Meine Fotos</h1>
+    </header>
 
-    <base href="/" />
+    <main id="gallery">
+        <!-- Hier erscheinen die Fotos -->
+    </main>
 
-    <meta name="color-scheme" content="light dark" />
-    <meta
-      name="viewport"
-      content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    />
-    <meta name="format-detection" content="telephone=no" />
-    <meta name="msapplication-tap-highlight" content="no" />
+    <!-- Detail Ansicht Modal -->
+    <div id="photo-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <img id="modal-img" src="">
+            <div class="modal-actions">
+                <button id="edit-btn">Bearbeiten</button>
+                <button id="delete-modal-btn" class="danger">Löschen</button>
+            </div>
+        </div>
+    </div>
 
-    <link rel="shortcut icon" type="image/png" href="/favicon.png" />
+    <!-- Lade-Overlay -->
+    <div id="loading-overlay" class="hidden">
+        <div class="spinner"></div>
+        <p>Bitte warten...</p>
+    </div>
 
-    <!-- add to homescreen for ios -->
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="Ionic App" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-  </head>
+    <button id="camera-btn" class="fab">
+        📸
+    </button>
 
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
-
+    <script type="module" src="/src/main.js"></script>
+</body>
 </html>
-
