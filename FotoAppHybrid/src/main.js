@@ -23,13 +23,15 @@ const PHOTO_STORAGE = 'saved_photos';
 let photos = [];
 let currentSelectedPhoto = null;
 
-// Berechtigungen initial anfordern
+// Berechtigungen gezielt für die Kamera anfordern
 async function checkPermissions() {
     if (Capacitor.isNativePlatform()) {
         try {
             const permissions = await Camera.checkPermissions();
             if (permissions.camera !== 'granted') {
-                await Camera.requestPermissions();
+                await Camera.requestPermissions({
+                    permissions: ['camera']
+                });
             }
         } catch (e) {
             console.warn("Berechtigungen konnten nicht angefordert werden", e);
@@ -41,12 +43,35 @@ async function checkPermissions() {
 function showLoading() { loadingOverlay.classList.remove('hidden'); }
 function hideLoading() { loadingOverlay.classList.add('hidden'); }
 
+// Fotoliste persistent speichern
+async function saveToPreferences() {
+    await Preferences.set({
+        key: PHOTO_STORAGE,
+        value: JSON.stringify(photos.map(p => ({
+            filepath: p.filepath,
+            createdAt: p.createdAt
+        })))
+    });
+}
+
 // Fotos aus Speicher laden und UI aufbauen
 async function loadPhotos() {
     showLoading();
     try {
         const { value } = await Preferences.get({ key: PHOTO_STORAGE });
-        photos = value ? JSON.parse(value) : [];
+        const savedPhotos = value ? JSON.parse(value) : [];
+
+        // Legacy-Support & Sortierung: createdAt ergänzen falls fehlt (aus Dateiname extrahieren)
+        photos = savedPhotos.map(p => {
+            if (!p.createdAt) {
+                const timestamp = parseInt(p.filepath.split('.')[0]);
+                p.createdAt = isNaN(timestamp) ? 0 : timestamp;
+            }
+            return p;
+        });
+
+        // Absteigend sortieren: Neueste zuerst
+        photos.sort((a, b) => b.createdAt - a.createdAt);
 
         gallery.innerHTML = '';
         for (let photo of photos) {
@@ -59,8 +84,9 @@ async function loadPhotos() {
         }
     } catch (e) {
         console.error("Fehler beim Laden der Galerie", e);
+    } finally {
+        hideLoading(); // Sicherstellen, dass Spinner verschwindet
     }
-    hideLoading();
 }
 
 // Foto aufnehmen und dauerhaft speichern
@@ -74,7 +100,8 @@ async function takePhoto() {
         });
 
         showLoading();
-        const fileName = Date.now() + '.jpeg';
+        const now = Date.now();
+        const fileName = now + '.jpeg';
 
         await Filesystem.writeFile({
             path: fileName,
@@ -89,17 +116,18 @@ async function takePhoto() {
 
         const newPhoto = {
             filepath: fileName,
-            webviewPath: Capacitor.convertFileSrc(fileUri.uri)
+            webviewPath: Capacitor.convertFileSrc(fileUri.uri),
+            createdAt: now
         };
 
         photos.unshift(newPhoto);
-        saveToPreferences();
+        await saveToPreferences();
         renderThumbnail(newPhoto, true);
-        hideLoading();
 
     } catch (error) {
+        console.error("Kamera-Vorgang abgebrochen oder fehlgeschlagen", error);
+    } finally {
         hideLoading();
-        console.error("Kamera-Vorgang abgebrochen", error);
     }
 }
 
@@ -119,13 +147,21 @@ async function openDetail(photo) {
     currentSelectedPhoto = photo;
     modalImg.src = photo.webviewPath;
     modal.style.display = "block";
+    metaText.innerText = "Lade Daten...";
 
     try {
         const file = await Filesystem.getUri({ directory: Directory.Data, path: photo.filepath });
         const metadata = await Exif.readExif({ path: file.uri });
-        metaText.innerText = metadata.tags?.dateTimeOriginal ? `Aufnahmezeit: ${metadata.tags.dateTimeOriginal}` : "";
+
+        let info = "";
+        if (metadata.tags?.dateTimeOriginal) info += `Aufnahme: ${metadata.tags.dateTimeOriginal}\n`;
+        if (metadata.tags?.pixelXDimension && metadata.tags?.pixelYDimension) {
+            info += `Maße: ${metadata.tags.pixelXDimension} x ${metadata.tags.pixelYDimension} Pixel`;
+        }
+
+        metaText.innerText = info || "Keine Metadaten verfügbar";
     } catch (e) {
-        metaText.innerText = "";
+        metaText.innerText = "Metadaten konnten nicht gelesen werden.";
     }
 }
 
@@ -139,6 +175,7 @@ async function editPhoto() {
     if (Capacitor.getPlatform() !== 'android') return;
     if (!currentSelectedPhoto) return;
 
+    showLoading();
     try {
         const file = await Filesystem.getUri({ directory: Directory.Data, path: currentSelectedPhoto.filepath });
         await PhotoEditor.editPhoto({ path: file.uri });
@@ -147,9 +184,11 @@ async function editPhoto() {
         const updatedPath = Capacitor.convertFileSrc(file.uri) + '?t=' + Date.now();
         currentSelectedPhoto.webviewPath = updatedPath;
         modalImg.src = updatedPath;
-        loadPhotos();
+        await loadPhotos();
     } catch (e) {
         console.error("Fehler beim Bearbeiten", e);
+    } finally {
+        hideLoading();
     }
 }
 
@@ -159,7 +198,7 @@ async function sharePhoto() {
     try {
         const file = await Filesystem.getUri({ directory: Directory.Data, path: currentSelectedPhoto.filepath });
         await Share.share({
-            title: 'Foto',
+            title: 'Foto teilen',
             url: file.uri
         });
     } catch (e) {
@@ -175,22 +214,15 @@ async function deletePhoto() {
     try {
         const photoToDelete = currentSelectedPhoto;
         photos = photos.filter(p => p.filepath !== photoToDelete.filepath);
-        saveToPreferences();
+        await saveToPreferences();
         await Filesystem.deleteFile({ path: photoToDelete.filepath, directory: Directory.Data });
         closeDetail();
-        loadPhotos();
+        await loadPhotos();
     } catch (e) {
         console.error("Fehler beim Löschen", e);
+    } finally {
+        hideLoading();
     }
-    hideLoading();
-}
-
-// Fotoliste persistent speichern
-function saveToPreferences() {
-    Preferences.set({
-        key: PHOTO_STORAGE,
-        value: JSON.stringify(photos.map(p => ({ filepath: p.filepath })))
-    });
 }
 
 // Event-Binding
