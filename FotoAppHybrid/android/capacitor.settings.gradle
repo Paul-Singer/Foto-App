@@ -19,3 +19,9 @@ project(':capacitor-status-bar').projectDir = new File('../node_modules/@capacit
 
 include ':capawesome-capacitor-photo-editor'
 project(':capawesome-capacitor-photo-editor').projectDir = new File('../node_modules/@capawesome/capacitor-photo-editor/android')
+
+include ':capacitor-share'
+project(':capacitor-share').projectDir = new File('../node_modules/@capacitor/share/android')
+
+include ':capawesome-capacitor-exif'
+project(':capawesome-capacitor-exif').projectDir = new File('../node_modules/@capawesome/capacitor-exif/android')

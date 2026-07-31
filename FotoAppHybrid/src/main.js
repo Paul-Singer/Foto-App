@@ -3,57 +3,67 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Preferences } from '@capacitor/preferences';
 import { Capacitor } from '@capacitor/core';
 import { PhotoEditor } from '@capawesome/capacitor-photo-editor';
+import { Share } from '@capacitor/share';
+import { Exif } from '@capawesome/capacitor-exif';
 
-// HTML Elemente
+// DOM-Elemente
 const gallery = document.getElementById('gallery');
 const cameraBtn = document.getElementById('camera-btn');
 const loadingOverlay = document.getElementById('loading-overlay');
-
-// Modal Elemente
 const modal = document.getElementById('photo-modal');
 const modalImg = document.getElementById('modal-img');
+const metaText = document.getElementById('photo-meta');
 const closeModal = document.querySelector('.close-modal');
 const editBtn = document.getElementById('edit-btn');
+const shareBtn = document.getElementById('share-btn');
 const deleteModalBtn = document.getElementById('delete-modal-btn');
 
+// Konfiguration und State
 const PHOTO_STORAGE = 'saved_photos';
 let photos = [];
 let currentSelectedPhoto = null;
 
-// --- Lade-Animation Funktionen ---
-function showLoading() {
-    loadingOverlay.classList.remove('hidden');
+// Berechtigungen initial anfordern
+async function checkPermissions() {
+    if (Capacitor.isNativePlatform()) {
+        try {
+            const permissions = await Camera.checkPermissions();
+            if (permissions.camera !== 'granted') {
+                await Camera.requestPermissions();
+            }
+        } catch (e) {
+            console.warn("Berechtigungen konnten nicht angefordert werden", e);
+        }
+    }
 }
 
-function hideLoading() {
-    loadingOverlay.classList.add('hidden');
-}
+// Ladeanzeige steuern
+function showLoading() { loadingOverlay.classList.remove('hidden'); }
+function hideLoading() { loadingOverlay.classList.add('hidden'); }
 
-// --- Foto Funktionen ---
-
-// 1. Fotos beim Start laden
+// Fotos aus Speicher laden und UI aufbauen
 async function loadPhotos() {
     showLoading();
     try {
         const { value } = await Preferences.get({ key: PHOTO_STORAGE });
         photos = value ? JSON.parse(value) : [];
 
-        gallery.innerHTML = ''; // Liste leeren
+        gallery.innerHTML = '';
         for (let photo of photos) {
             const file = await Filesystem.getUri({
                 directory: Directory.Data,
                 path: photo.filepath
             });
             photo.webviewPath = Capacitor.convertFileSrc(file.uri);
-            addPhotoToUI(photo);
+            renderThumbnail(photo);
         }
     } catch (e) {
-        console.error("Fehler beim Laden:", e);
+        console.error("Fehler beim Laden der Galerie", e);
     }
     hideLoading();
 }
 
-// 2. Foto aufnehmen
+// Foto aufnehmen und dauerhaft speichern
 async function takePhoto() {
     try {
         const image = await Camera.getPhoto({
@@ -84,101 +94,98 @@ async function takePhoto() {
 
         photos.unshift(newPhoto);
         saveToPreferences();
-        addPhotoToUI(newPhoto, true);
+        renderThumbnail(newPhoto, true);
         hideLoading();
 
     } catch (error) {
         hideLoading();
-        console.error("Fehler beim Fotografieren:", error);
+        console.error("Kamera-Vorgang abgebrochen", error);
     }
 }
 
-// 3. Foto in der UI anzeigen
-function addPhotoToUI(photo, atStart = false) {
+// Miniaturansicht in der Galerie erstellen
+function renderThumbnail(photo, atStart = false) {
     const div = document.createElement('div');
     div.className = 'photo-container';
-    div.innerHTML = `<img src="${photo.webviewPath}">`;
-
-    // Klick auf Foto -> Modal öffnen (Detailansicht)
+    div.innerHTML = `<img src="${photo.webviewPath}" alt="Vorschau">`;
     div.onclick = () => openDetail(photo);
 
-    if (atStart) {
-        gallery.prepend(div);
-    } else {
-        gallery.appendChild(div);
-    }
+    if (atStart) gallery.prepend(div);
+    else gallery.appendChild(div);
 }
 
-// 4. Detailansicht öffnen
-function openDetail(photo) {
+// Detailansicht öffnen und Metadaten auslesen
+async function openDetail(photo) {
     currentSelectedPhoto = photo;
     modalImg.src = photo.webviewPath;
     modal.style.display = "block";
+
+    try {
+        const file = await Filesystem.getUri({ directory: Directory.Data, path: photo.filepath });
+        const metadata = await Exif.readExif({ path: file.uri });
+        metaText.innerText = metadata.tags?.dateTimeOriginal ? `Aufnahmezeit: ${metadata.tags.dateTimeOriginal}` : "";
+    } catch (e) {
+        metaText.innerText = "";
+    }
 }
 
-// 5. Detailansicht schließen
 function closeDetail() {
     modal.style.display = "none";
     currentSelectedPhoto = null;
 }
 
-// 6. Foto bearbeiten (Nur Android)
+// Foto-Editor Plugin aufrufen (Android)
 async function editPhoto() {
-    if (Capacitor.getPlatform() !== 'android') {
-        alert("Bearbeiten ist nur unter Android verfügbar.");
-        return;
-    }
-
+    if (Capacitor.getPlatform() !== 'android') return;
     if (!currentSelectedPhoto) return;
 
     try {
-        const file = await Filesystem.getUri({
-            directory: Directory.Data,
-            path: currentSelectedPhoto.filepath
-        });
+        const file = await Filesystem.getUri({ directory: Directory.Data, path: currentSelectedPhoto.filepath });
+        await PhotoEditor.editPhoto({ path: file.uri });
 
-        await PhotoEditor.editPhoto({
-            path: file.uri
-        });
-
-        // Bildpfad aktualisieren (Cache-Busting mit Zeitstempel)
+        // Pfad aktualisieren, um Neuladen des Bildes zu erzwingen
         const updatedPath = Capacitor.convertFileSrc(file.uri) + '?t=' + Date.now();
         currentSelectedPhoto.webviewPath = updatedPath;
         modalImg.src = updatedPath;
-
-        // Liste neu laden, um Thumbnail zu aktualisieren
         loadPhotos();
     } catch (e) {
-        console.error("Fehler beim Bearbeiten:", e);
+        console.error("Fehler beim Bearbeiten", e);
     }
 }
 
-// 7. Foto löschen
-async function deletePhoto() {
+// Foto über System-Dialog teilen
+async function sharePhoto() {
     if (!currentSelectedPhoto) return;
+    try {
+        const file = await Filesystem.getUri({ directory: Directory.Data, path: currentSelectedPhoto.filepath });
+        await Share.share({
+            title: 'Foto',
+            url: file.uri
+        });
+    } catch (e) {
+        console.error("Teilen fehlgeschlagen", e);
+    }
+}
+
+// Foto aus Speicher und UI entfernen
+async function deletePhoto() {
+    if (!currentSelectedPhoto || !confirm("Foto unwiderruflich löschen?")) return;
 
     showLoading();
     try {
         const photoToDelete = currentSelectedPhoto;
-
-        // Aus Liste entfernen
         photos = photos.filter(p => p.filepath !== photoToDelete.filepath);
         saveToPreferences();
-
-        // Datei löschen
-        await Filesystem.deleteFile({
-            path: photoToDelete.filepath,
-            directory: Directory.Data
-        });
-
+        await Filesystem.deleteFile({ path: photoToDelete.filepath, directory: Directory.Data });
         closeDetail();
-        loadPhotos(); // Liste in der UI aktualisieren
+        loadPhotos();
     } catch (e) {
-        console.error("Fehler beim Löschen:", e);
+        console.error("Fehler beim Löschen", e);
     }
     hideLoading();
 }
 
+// Fotoliste persistent speichern
 function saveToPreferences() {
     Preferences.set({
         key: PHOTO_STORAGE,
@@ -186,18 +193,14 @@ function saveToPreferences() {
     });
 }
 
-// --- Event Listener ---
+// Event-Binding
 cameraBtn.onclick = takePhoto;
 closeModal.onclick = closeDetail;
 editBtn.onclick = editPhoto;
+shareBtn.onclick = sharePhoto;
 deleteModalBtn.onclick = deletePhoto;
+window.onclick = (e) => { if (e.target == modal) closeDetail(); };
 
-// Schließen wenn man außerhalb des Bildes klickt
-window.onclick = (event) => {
-    if (event.target == modal) {
-        closeDetail();
-    }
-}
-
-// Initialisierung
+// App initialisieren
+checkPermissions();
 loadPhotos();
