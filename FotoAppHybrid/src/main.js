@@ -153,8 +153,20 @@ async function takePhoto() {
 function renderThumbnail(photo, atStart = false) {
     const div = document.createElement('div');
     div.className = 'photo-container';
-    div.innerHTML = `<img src="${photo.webviewPath}" alt="Vorschau">`;
+    div.innerHTML = `
+        <img src="${photo.webviewPath}" alt="Vorschau">
+        <button class="delete-btn">×</button>
+    `;
+
+    // Klick auf Foto -> Modal öffnen (Detailansicht)
     div.onclick = () => openDetail(photo);
+
+    // Klick auf Löschen-Button in der Galerie
+    const delBtn = div.querySelector('.delete-btn');
+    delBtn.onclick = (e) => {
+        e.stopPropagation(); // Verhindert das Öffnen der Detailansicht
+        deletePhoto(photo);
+    };
 
     if (atStart) gallery.prepend(div);
     else gallery.appendChild(div);
@@ -229,16 +241,19 @@ async function sharePhoto() {
 }
 
 // Foto aus Speicher und UI entfernen
-async function deletePhoto() {
-    if (!currentSelectedPhoto || !confirm("Foto unwiderruflich löschen?")) return;
+async function deletePhoto(photoToDelete = currentSelectedPhoto) {
+    if (!photoToDelete || !confirm("Foto unwiderruflich löschen?")) return;
 
     showLoading();
     try {
-        const photoToDelete = currentSelectedPhoto;
         photos = photos.filter(p => p.filepath !== photoToDelete.filepath);
         await saveToPreferences();
         await Filesystem.deleteFile({ path: photoToDelete.filepath, directory: Directory.Data });
-        closeDetail();
+
+        if (photoToDelete === currentSelectedPhoto) {
+            closeDetail();
+        }
+
         await loadPhotos();
     } catch (e) {
         console.error("Fehler beim Löschen", e);

@@ -34,7 +34,7 @@ Die Anwendung folgt einem modularen Aufbau in einer einzigen logischen Ebene (`m
 | Kamera-Button | Floating Action Button (FAB) mit Icon. |
 | Sofort-Anzeige | DOM-Manipulation hängt neues Bild direkt in die Galerie ein. |
 | Bearbeiten | Button in Detailansicht öffnet nativen Android-Editor. |
-| Löschen | Button in Detailansicht löscht Datei und bereinigt den Speicherplatz. |
+| Löschen | Button in Detailansicht sowie Direkt-Löschen-Button in der Galerieansicht. |
 | Teilen | Integration des `Share` Plugins für System-Dialoge. |
 
 ## 5. Installations- & Build-Anleitung
