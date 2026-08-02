@@ -1,4 +1,4 @@
-# Projektdokumentation: FotoAppHybrid
+# Projektdokumentation: FotoApp
 
 ## 1. Projektübersicht
 Dieses Projekt umfasst die Entwicklung einer hybriden Mobilanwendung zur Verwaltung von Fotos. Die App wurde speziell nach den Anforderungen des Moduls App-Entwicklung (Wirtschaftsinformatik) entworfen und implementiert.
@@ -51,4 +51,4 @@ Die Anwendung folgt einem modularen Aufbau in einer einzigen logischen Ebene (`m
 4.  **App starten:** `npx cap run android`
 
 ## 6. Fazit
-Die FotoAppHybrid beweist, dass moderne Mobilanwendungen auch ohne massiven Framework-Einsatz professionell und funktionsreich umgesetzt werden können. Durch den Fokus auf Vanilla JS bleibt die App für Studenten der Wirtschaftsinformatik verständlich und bietet gleichzeitig alle notwendigen Features einer modernen Foto-Management-Software.
+Die FotoApp beweist, dass moderne Mobilanwendungen auch ohne massiven Framework-Einsatz professionell und funktionsreich umgesetzt werden können. Durch den Fokus auf Vanilla JS bleibt die App für Studenten der Wirtschaftsinformatik verständlich und bietet gleichzeitig alle notwendigen Features einer modernen Foto-Management-Software.
