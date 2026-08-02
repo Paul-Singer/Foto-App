@@ -165,21 +165,25 @@ async function openDetail(photo) {
     currentSelectedPhoto = photo;
     modalImg.src = photo.webviewPath;
     modal.style.display = "block";
-    metaText.innerText = "Lade Daten...";
+
+    // Datum aus Zeitstempel formatieren
+    const date = new Date(photo.createdAt);
+    const formattedDate = date.toLocaleString('de-DE', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
+
+    metaText.innerText = `Aufgenommen am: ${formattedDate}`;
 
     try {
         const file = await Filesystem.getUri({ directory: Directory.Data, path: photo.filepath });
         const metadata = await Exif.readExif({ path: file.uri });
 
-        let info = "";
-        if (metadata.tags?.dateTimeOriginal) info += `Aufnahme: ${metadata.tags.dateTimeOriginal}\n`;
         if (metadata.tags?.pixelXDimension && metadata.tags?.pixelYDimension) {
-            info += `Maße: ${metadata.tags.pixelXDimension} x ${metadata.tags.pixelYDimension} Pixel`;
+            metaText.innerText += `\nMaße: ${metadata.tags.pixelXDimension} x ${metadata.tags.pixelYDimension} Pixel`;
         }
-
-        metaText.innerText = info || "Keine Metadaten verfügbar";
     } catch (e) {
-        metaText.innerText = "Metadaten konnten nicht gelesen werden.";
+        console.warn("Exif-Daten konnten nicht ergänzt werden");
     }
 }
 
