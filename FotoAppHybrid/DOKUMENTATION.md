@@ -28,7 +28,7 @@ Die Anwendung folgt einem modularen Aufbau in einer einzigen logischen Ebene (`m
 | Anforderung | Umsetzung |
 | :--- | :--- |
 | Android/iOS Support | Durch Capacitor-Plattformen sichergestellt. |
-| Berechtigungen | Abfrage erfolgt beim App-Start sowie explizit vor der Kamera-Nutzung via `Camera.requestPermissions()`. |
+| Berechtigungen | Abfrage erfolgt beim App-Start sowie explizit vor der Kamera-Nutzung (inkl. manueller Nutzerbestätigung) via `Camera.requestPermissions()`. |
 | Galerieansicht | 3-spaltiges CSS-Grid, quadratische Thumbnails (`aspect-ratio: 1/1`). |
 | Sortierung | Neueste Bilder werden mittels `unshift()` an den Anfang der Liste gesetzt. |
 | Kamera-Button | Floating Action Button (FAB) mit Icon. |

@@ -97,6 +97,11 @@ async function loadPhotos() {
 
 // Foto aufnehmen und dauerhaft speichern
 async function takePhoto() {
+    // Manuelle Bestätigung vor jedem Kamera-Start (für Präsentationszwecke)
+    if (!confirm("Möchtest du die Kamera öffnen?")) {
+        return;
+    }
+
     // PRÜFUNG VOR DEM START:
     const hasPermission = await checkPermissions();
     if (!hasPermission) {
