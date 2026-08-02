@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportHeight="108"
+    android:viewportWidth="108">
+    <!-- Kamera-Icon Pfad (Zentriert) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,54m-12,0a12,12 0,1 1,24 0a12,12 0,1 1,-24 0 M69,45V36h-9l-6,-6l-6,6h-9v9h-9v30h48V45H69z" />
+</vector>

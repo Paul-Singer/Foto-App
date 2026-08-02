@@ -1,0 +1,28 @@
+{
+  "name": "FotoApp",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/app": "8.1.1",
+    "@capacitor/camera": "^8.2.1",
+    "@capacitor/core": "8.4.2",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/preferences": "^8.0.1",
+    "@capacitor/status-bar": "8.0.3",
+    "@capawesome/capacitor-photo-editor": "^8.0.1",
+    "@capacitor/share": "^8.0.1",
+    "@capawesome/capacitor-exif": "^0.1.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.4.2",
+    "vite": "^5.0.0"
+  },
+  "description": "An Ionic project"
+}
