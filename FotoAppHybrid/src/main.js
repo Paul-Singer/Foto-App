@@ -27,16 +27,22 @@ let currentSelectedPhoto = null;
 async function checkPermissions() {
     if (Capacitor.isNativePlatform()) {
         try {
-            const permissions = await Camera.checkPermissions();
-            if (permissions.camera !== 'granted') {
-                await Camera.requestPermissions({
+            const status = await Camera.checkPermissions();
+
+            // Wenn noch nicht erlaubt, fragen wir jetzt nach
+            if (status.camera !== 'granted') {
+                const result = await Camera.requestPermissions({
                     permissions: ['camera']
                 });
+                return result.camera === 'granted';
             }
+            return true; // Bereits erlaubt
         } catch (e) {
             console.warn("Berechtigungen konnten nicht angefordert werden", e);
+            return false;
         }
     }
+    return true; // Im Web immer true
 }
 
 // Ladeanzeige steuern
@@ -91,6 +97,13 @@ async function loadPhotos() {
 
 // Foto aufnehmen und dauerhaft speichern
 async function takePhoto() {
+    // PRÜFUNG VOR DEM START:
+    const hasPermission = await checkPermissions();
+    if (!hasPermission) {
+        alert("Kamera-Berechtigung erforderlich.");
+        return;
+    }
+
     try {
         const image = await Camera.getPhoto({
             quality: 90,
