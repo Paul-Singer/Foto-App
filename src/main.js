@@ -17,8 +17,6 @@ const photoModal = document.getElementById('photoModal');
 const closeModal = document.getElementById('closeModal');
 const modalImage = document.getElementById('modalImage');
 const metaDate = document.getElementById('metaDate');
-const metaWidth = document.getElementById('metaWidth');
-const metaHeight = document.getElementById('metaHeight');
 
 // Modal Buttons
 const editBtn = document.getElementById('editBtn');
@@ -66,14 +64,15 @@ async function takePhoto() {
     try {
         const photo = await Camera.getPhoto({
             quality: 90,
-            allowEditing: false, // Wir nutzen das separate Plugin zum Bearbeiten
+            allowEditing: false,
             resultType: CameraResultType.Base64,
             source: CameraSource.Camera
         });
 
         showLoading('Foto wird gespeichert...');
 
-        const fileName = `photo_${Date.now()}.jpg`;
+        const now = Date.now();
+        const fileName = `photo_${now}.jpg`;
         const date = new Date().toISOString();
 
         // Datei im Dateisystem speichern
@@ -86,16 +85,16 @@ async function takePhoto() {
         // Metadaten zum Array hinzufügen
         const newPhoto = {
             fileName: fileName,
-            date: date
+            date: date,
+            updatedAt: now // Zeitstempel für Cache-Busting
         };
 
-        photos.unshift(newPhoto); // Neues Foto an den Anfang
+        photos.unshift(newPhoto); // Neuestes Foto an den Anfang
         await savePhotosToPreferences();
         await renderGallery();
 
     } catch (error) {
         console.error('Fehler bei der Fotoaufnahme:', error);
-        // "User cancelled" ist ein häufiger "Fehler", den wir hier ignorieren können
     } finally {
         hideLoading();
     }
@@ -141,7 +140,8 @@ async function renderGallery() {
                 path: photo.fileName
             });
 
-            const webSrc = Capacitor.convertFileSrc(fileUri.uri);
+            // Cache-Busting URL erstellen
+            const webSrc = `${Capacitor.convertFileSrc(fileUri.uri)}?v=${photo.updatedAt || Date.now()}`;
 
             // Container für Bild und Lösch-Button
             const item = document.createElement('div');
@@ -152,13 +152,13 @@ async function renderGallery() {
             img.alt = 'Galeriefoto';
             img.onclick = () => openPhotoDetails(photo, webSrc);
 
-            // Direkt-Lösch-Button
+            // Direkt-Lösch-Button (Papierkorb erhalten laut Vorgabe)
             const delBtn = document.createElement('button');
             delBtn.className = 'delete-gallery-btn';
             delBtn.innerHTML = '🗑️';
             delBtn.title = 'Löschen';
             delBtn.onclick = (e) => {
-                e.stopPropagation(); // Verhindert das Öffnen der Details
+                e.stopPropagation();
                 deletePhoto(photo);
             };
 
@@ -176,26 +176,11 @@ async function openPhotoDetails(photo, webSrc) {
     currentPhoto = photo;
     modalImage.src = webSrc;
 
-    // Metadaten setzen
+    // Aufnahmedatum formatieren
     const date = new Date(photo.date);
-    metaDate.textContent = date.toLocaleString('de-DE');
+    metaDate.textContent = isNaN(date.getTime()) ? 'Nicht verfügbar' : date.toLocaleString('de-DE');
 
-    // Maße ermitteln (über ein temporäres Image-Objekt)
-    metaWidth.textContent = 'Lädt...';
-    metaHeight.textContent = 'Lädt...';
-
-    const tempImg = new Image();
-    tempImg.onload = () => {
-        metaWidth.textContent = tempImg.width;
-        metaHeight.textContent = tempImg.height;
-    };
-    tempImg.onerror = () => {
-        metaWidth.textContent = 'Nicht verfügbar';
-        metaHeight.textContent = 'Nicht verfügbar';
-    };
-    tempImg.src = webSrc;
-
-    // Buttons anzeigen/ausblenden je nach Plattform
+    // Bildbearbeitung nur unter Android verfügbar
     if (Capacitor.getPlatform() === 'android') {
         editBtn.classList.remove('hidden');
     } else {
@@ -212,7 +197,12 @@ function closePhotoDetails() {
 
 // --- Bearbeiten ---
 async function editPhoto() {
-    if (!currentPhoto || Capacitor.getPlatform() !== 'android') return;
+    if (!currentPhoto) return;
+
+    if (Capacitor.getPlatform() !== 'android') {
+        alert('Die Bildbearbeitung ist nur unter Android verfügbar.');
+        return;
+    }
 
     try {
         const fileUri = await Filesystem.getUri({
@@ -220,18 +210,28 @@ async function editPhoto() {
             path: currentPhoto.fileName
         });
 
+        // Nativen Editor öffnen
         await PhotoEditor.editPhoto({
             path: fileUri.uri
         });
 
-        // Nach dem Bearbeiten Galerie neu laden
-        // Zeitstempel an URL hängen, um Cache zu umgehen
+        showLoading('Galerie wird aktualisiert...');
+
+        // Cache umgehen durch Zeitstempel-Aktualisierung
+        currentPhoto.updatedAt = Date.now();
+
+        await savePhotosToPreferences();
         await renderGallery();
-        closePhotoDetails();
-        alert('Foto wurde bearbeitet und gespeichert.');
+
+        // Detailansicht mit neuem Zeitstempel aktualisieren
+        const updatedWebSrc = `${Capacitor.convertFileSrc(fileUri.uri)}?v=${currentPhoto.updatedAt}`;
+        await openPhotoDetails(currentPhoto, updatedWebSrc);
+
     } catch (error) {
         console.error('Fehler beim Bearbeiten:', error);
         alert('Das Foto konnte nicht bearbeitet werden.');
+    } finally {
+        hideLoading();
     }
 }
 
@@ -244,7 +244,7 @@ async function deletePhoto(photoToDelete = null) {
 
     showLoading('Foto wird gelöscht...');
     try {
-        // Datei aus Filesystem löschen
+        // Datei aus dem Dateisystem löschen
         await Filesystem.deleteFile({
             path: photo.fileName,
             directory: Directory.Data
@@ -278,6 +278,7 @@ async function sharePhoto() {
             path: currentPhoto.fileName
         });
 
+        // Teilen auf Android erfordert FileProvider (in AndroidManifest konfiguriert)
         await Share.share({
             title: 'Mein Foto',
             text: 'Schau dir dieses Foto an!',
@@ -306,12 +307,11 @@ editBtn.onclick = editPhoto;
 shareBtn.onclick = sharePhoto;
 deleteBtn.onclick = deletePhoto;
 
-// Schließen des Modals bei Klick außerhalb
 window.onclick = (event) => {
     if (event.target === photoModal) {
         closePhotoDetails();
     }
 };
 
-// Start der App
+// App-Start
 initializeApp();
