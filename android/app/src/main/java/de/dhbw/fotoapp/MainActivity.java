@@ -1,4 +1,4 @@
-package io.ionic.starter;
+package de.dhbw.fotoapp;
 
 import com.getcapacitor.BridgeActivity;
 

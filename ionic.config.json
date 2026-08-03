@@ -1,7 +1,0 @@
-{
-  "name": "FotoApp",
-  "integrations": {
-    "capacitor": {}
-  },
-  "type": "vue-vite"
-}

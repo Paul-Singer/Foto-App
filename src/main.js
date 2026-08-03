@@ -1,275 +1,317 @@
+// --- Imports ---
+import { Capacitor } from '@capacitor/core';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Preferences } from '@capacitor/preferences';
-import { Capacitor } from '@capacitor/core';
-import { PhotoEditor } from '@capawesome/capacitor-photo-editor';
 import { Share } from '@capacitor/share';
-import { Exif } from '@capawesome/capacitor-exif';
+import { PhotoEditor } from '@capawesome/capacitor-photo-editor';
 
-// DOM-Elemente
-const gallery = document.getElementById('gallery');
-const cameraBtn = document.getElementById('camera-btn');
-const loadingOverlay = document.getElementById('loading-overlay');
-const modal = document.getElementById('photo-modal');
-const modalImg = document.getElementById('modal-img');
-const metaText = document.getElementById('photo-meta');
-const closeModal = document.querySelector('.close-modal');
-const editBtn = document.getElementById('edit-btn');
-const shareBtn = document.getElementById('share-btn');
-const deleteModalBtn = document.getElementById('delete-modal-btn');
+// --- DOM-Elemente ---
+const galleryElement = document.getElementById('gallery');
+const cameraBtn = document.getElementById('cameraBtn');
+const loadingIndicator = document.getElementById('loadingIndicator');
+const loadingMessage = document.getElementById('loadingMessage');
 
-// Konfiguration und State
-const PHOTO_STORAGE = 'saved_photos';
+// Modal Elemente
+const photoModal = document.getElementById('photoModal');
+const closeModal = document.getElementById('closeModal');
+const modalImage = document.getElementById('modalImage');
+const metaDate = document.getElementById('metaDate');
+const metaWidth = document.getElementById('metaWidth');
+const metaHeight = document.getElementById('metaHeight');
+
+// Modal Buttons
+const editBtn = document.getElementById('editBtn');
+const shareBtn = document.getElementById('shareBtn');
+const deleteBtn = document.getElementById('deleteBtn');
+
+// --- Zustandsvariablen ---
+const STORAGE_KEY = 'photos';
 let photos = [];
-let currentSelectedPhoto = null;
+let currentPhoto = null;
 
-// Berechtigungen gezielt für die Kamera anfordern
-async function checkPermissions() {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            const status = await Camera.checkPermissions();
-
-            // Wenn noch nicht erlaubt, fragen wir jetzt nach
-            if (status.camera !== 'granted') {
-                const result = await Camera.requestPermissions({
-                    permissions: ['camera']
-                });
-                return result.camera === 'granted';
-            }
-            return true; // Bereits erlaubt
-        } catch (e) {
-            console.warn("Berechtigungen konnten nicht angefordert werden", e);
-            return false;
-        }
-    }
-    return true; // Im Web immer true
+// --- Initialisierung ---
+async function initializeApp() {
+    console.log('App wird initialisiert...');
+    await loadPhotos();
 }
 
-// Ladeanzeige steuern
-function showLoading() { loadingOverlay.classList.remove('hidden'); }
-function hideLoading() { loadingOverlay.classList.add('hidden'); }
-
-// Fotoliste persistent speichern
-async function saveToPreferences() {
-    await Preferences.set({
-        key: PHOTO_STORAGE,
-        value: JSON.stringify(photos.map(p => ({
-            filepath: p.filepath,
-            createdAt: p.createdAt
-        })))
-    });
-}
-
-// Fotos aus Speicher laden und UI aufbauen
-async function loadPhotos() {
-    showLoading();
+// --- Berechtigungen ---
+async function requestCameraPermission() {
     try {
-        const { value } = await Preferences.get({ key: PHOTO_STORAGE });
-        const savedPhotos = value ? JSON.parse(value) : [];
+        const permissions = await Camera.checkPermissions();
 
-        // Legacy-Support & Sortierung: createdAt ergänzen falls fehlt (aus Dateiname extrahieren)
-        photos = savedPhotos.map(p => {
-            if (!p.createdAt) {
-                const timestamp = parseInt(p.filepath.split('.')[0]);
-                p.createdAt = isNaN(timestamp) ? 0 : timestamp;
-            }
-            return p;
-        });
-
-        // Absteigend sortieren: Neueste zuerst
-        photos.sort((a, b) => b.createdAt - a.createdAt);
-
-        gallery.innerHTML = '';
-        for (let photo of photos) {
-            const file = await Filesystem.getUri({
-                directory: Directory.Data,
-                path: photo.filepath
+        if (permissions.camera !== 'granted') {
+            const requested = await Camera.requestPermissions({
+                permissions: ['camera']
             });
-            photo.webviewPath = Capacitor.convertFileSrc(file.uri);
-            renderThumbnail(photo);
+
+            if (requested.camera !== 'granted') {
+                alert('Die Kamera-Berechtigung wird benötigt, um Fotos aufzunehmen.');
+                return false;
+            }
         }
-    } catch (e) {
-        console.error("Fehler beim Laden der Galerie", e);
-    } finally {
-        hideLoading(); // Sicherstellen, dass Spinner verschwindet
+        return true;
+    } catch (error) {
+        console.error('Fehler bei Berechtigungsprüfung:', error);
+        return false;
     }
 }
 
-// Foto aufnehmen und dauerhaft speichern
+// --- Kamera und Speicherung ---
 async function takePhoto() {
-    // Manuelle Bestätigung vor jedem Kamera-Start (für Präsentationszwecke)
-    if (!confirm("Möchtest du die Kamera öffnen?")) {
-        return;
-    }
-
-    // PRÜFUNG VOR DEM START:
-    const hasPermission = await checkPermissions();
-    if (!hasPermission) {
-        alert("Kamera-Berechtigung erforderlich.");
-        return;
-    }
+    const hasPermission = await requestCameraPermission();
+    if (!hasPermission) return;
 
     try {
-        const image = await Camera.getPhoto({
+        const photo = await Camera.getPhoto({
             quality: 90,
-            allowEditing: false,
+            allowEditing: false, // Wir nutzen das separate Plugin zum Bearbeiten
             resultType: CameraResultType.Base64,
             source: CameraSource.Camera
         });
 
-        showLoading();
-        const now = Date.now();
-        const fileName = now + '.jpeg';
+        showLoading('Foto wird gespeichert...');
 
+        const fileName = `photo_${Date.now()}.jpg`;
+        const date = new Date().toISOString();
+
+        // Datei im Dateisystem speichern
         await Filesystem.writeFile({
             path: fileName,
-            data: image.base64String,
+            data: photo.base64String,
             directory: Directory.Data
         });
 
-        const fileUri = await Filesystem.getUri({
-            directory: Directory.Data,
-            path: fileName
-        });
-
+        // Metadaten zum Array hinzufügen
         const newPhoto = {
-            filepath: fileName,
-            webviewPath: Capacitor.convertFileSrc(fileUri.uri),
-            createdAt: now
+            fileName: fileName,
+            date: date
         };
 
-        photos.unshift(newPhoto);
-        await saveToPreferences();
-        renderThumbnail(newPhoto, true);
+        photos.unshift(newPhoto); // Neues Foto an den Anfang
+        await savePhotosToPreferences();
+        await renderGallery();
 
     } catch (error) {
-        console.error("Kamera-Vorgang abgebrochen oder fehlgeschlagen", error);
+        console.error('Fehler bei der Fotoaufnahme:', error);
+        // "User cancelled" ist ein häufiger "Fehler", den wir hier ignorieren können
     } finally {
         hideLoading();
     }
 }
 
-// Miniaturansicht in der Galerie erstellen
-function renderThumbnail(photo, atStart = false) {
-    const div = document.createElement('div');
-    div.className = 'photo-container';
-    div.innerHTML = `
-        <img src="${photo.webviewPath}" alt="Vorschau">
-        <button class="delete-btn">×</button>
-    `;
-
-    // Klick auf Foto -> Modal öffnen (Detailansicht)
-    div.onclick = () => openDetail(photo);
-
-    // Klick auf Löschen-Button in der Galerie
-    const delBtn = div.querySelector('.delete-btn');
-    delBtn.onclick = (e) => {
-        e.stopPropagation(); // Verhindert das Öffnen der Detailansicht
-        deletePhoto(photo);
-    };
-
-    if (atStart) gallery.prepend(div);
-    else gallery.appendChild(div);
-}
-
-// Detailansicht öffnen und Metadaten auslesen
-async function openDetail(photo) {
-    currentSelectedPhoto = photo;
-    modalImg.src = photo.webviewPath;
-    modal.style.display = "block";
-
-    // Datum aus Zeitstempel formatieren
-    const date = new Date(photo.createdAt);
-    const formattedDate = date.toLocaleString('de-DE', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit'
+async function savePhotosToPreferences() {
+    await Preferences.set({
+        key: STORAGE_KEY,
+        value: JSON.stringify(photos)
     });
+}
 
-    metaText.innerText = `Aufgenommen am: ${formattedDate}`;
-
+// --- Galerie laden und darstellen ---
+async function loadPhotos() {
+    showLoading('Fotos werden geladen...');
     try {
-        const file = await Filesystem.getUri({ directory: Directory.Data, path: photo.filepath });
-        const metadata = await Exif.readExif({ path: file.uri });
+        const { value } = await Preferences.get({ key: STORAGE_KEY });
+        photos = value ? JSON.parse(value) : [];
 
-        if (metadata.tags?.pixelXDimension && metadata.tags?.pixelYDimension) {
-            metaText.innerText += `\nMaße: ${metadata.tags.pixelXDimension} x ${metadata.tags.pixelYDimension} Pixel`;
-        }
-    } catch (e) {
-        console.warn("Exif-Daten konnten nicht ergänzt werden");
+        // Sortieren: Neueste zuerst
+        photos.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        await renderGallery();
+    } catch (error) {
+        console.error('Fehler beim Laden der Fotos:', error);
+    } finally {
+        hideLoading();
     }
 }
 
-function closeDetail() {
-    modal.style.display = "none";
-    currentSelectedPhoto = null;
+async function renderGallery() {
+    galleryElement.innerHTML = '';
+
+    if (photos.length === 0) {
+        galleryElement.innerHTML = '<p style="grid-column: span 3; text-align: center; padding: 20px;">Noch keine Fotos aufgenommen.</p>';
+        return;
+    }
+
+    for (const photo of photos) {
+        try {
+            const fileUri = await Filesystem.getUri({
+                directory: Directory.Data,
+                path: photo.fileName
+            });
+
+            const webSrc = Capacitor.convertFileSrc(fileUri.uri);
+
+            // Container für Bild und Lösch-Button
+            const item = document.createElement('div');
+            item.className = 'gallery-item';
+
+            const img = document.createElement('img');
+            img.src = webSrc;
+            img.alt = 'Galeriefoto';
+            img.onclick = () => openPhotoDetails(photo, webSrc);
+
+            // Direkt-Lösch-Button
+            const delBtn = document.createElement('button');
+            delBtn.className = 'delete-gallery-btn';
+            delBtn.innerHTML = '🗑️';
+            delBtn.title = 'Löschen';
+            delBtn.onclick = (e) => {
+                e.stopPropagation(); // Verhindert das Öffnen der Details
+                deletePhoto(photo);
+            };
+
+            item.appendChild(img);
+            item.appendChild(delBtn);
+            galleryElement.appendChild(item);
+        } catch (e) {
+            console.error(`Fehler beim Laden von ${photo.fileName}:`, e);
+        }
+    }
 }
 
-// Foto-Editor Plugin aufrufen (Android)
+// --- Detailansicht ---
+async function openPhotoDetails(photo, webSrc) {
+    currentPhoto = photo;
+    modalImage.src = webSrc;
+
+    // Metadaten setzen
+    const date = new Date(photo.date);
+    metaDate.textContent = date.toLocaleString('de-DE');
+
+    // Maße ermitteln (über ein temporäres Image-Objekt)
+    metaWidth.textContent = 'Lädt...';
+    metaHeight.textContent = 'Lädt...';
+
+    const tempImg = new Image();
+    tempImg.onload = () => {
+        metaWidth.textContent = tempImg.width;
+        metaHeight.textContent = tempImg.height;
+    };
+    tempImg.onerror = () => {
+        metaWidth.textContent = 'Nicht verfügbar';
+        metaHeight.textContent = 'Nicht verfügbar';
+    };
+    tempImg.src = webSrc;
+
+    // Buttons anzeigen/ausblenden je nach Plattform
+    if (Capacitor.getPlatform() === 'android') {
+        editBtn.classList.remove('hidden');
+    } else {
+        editBtn.classList.add('hidden');
+    }
+
+    photoModal.classList.remove('hidden');
+}
+
+function closePhotoDetails() {
+    photoModal.classList.add('hidden');
+    currentPhoto = null;
+}
+
+// --- Bearbeiten ---
 async function editPhoto() {
-    if (Capacitor.getPlatform() !== 'android') return;
-    if (!currentSelectedPhoto) return;
+    if (!currentPhoto || Capacitor.getPlatform() !== 'android') return;
 
-    showLoading();
     try {
-        const file = await Filesystem.getUri({ directory: Directory.Data, path: currentSelectedPhoto.filepath });
-        await PhotoEditor.editPhoto({ path: file.uri });
-
-        // Pfad aktualisieren, um Neuladen des Bildes zu erzwingen
-        const updatedPath = Capacitor.convertFileSrc(file.uri) + '?t=' + Date.now();
-        currentSelectedPhoto.webviewPath = updatedPath;
-        modalImg.src = updatedPath;
-        await loadPhotos();
-    } catch (e) {
-        console.error("Fehler beim Bearbeiten", e);
-    } finally {
-        hideLoading();
-    }
-}
-
-// Foto über System-Dialog teilen
-async function sharePhoto() {
-    if (!currentSelectedPhoto) return;
-    try {
-        const file = await Filesystem.getUri({ directory: Directory.Data, path: currentSelectedPhoto.filepath });
-        await Share.share({
-            title: 'Foto teilen',
-            url: file.uri
+        const fileUri = await Filesystem.getUri({
+            directory: Directory.Data,
+            path: currentPhoto.fileName
         });
-    } catch (e) {
-        console.error("Teilen fehlgeschlagen", e);
+
+        await PhotoEditor.editPhoto({
+            path: fileUri.uri
+        });
+
+        // Nach dem Bearbeiten Galerie neu laden
+        // Zeitstempel an URL hängen, um Cache zu umgehen
+        await renderGallery();
+        closePhotoDetails();
+        alert('Foto wurde bearbeitet und gespeichert.');
+    } catch (error) {
+        console.error('Fehler beim Bearbeiten:', error);
+        alert('Das Foto konnte nicht bearbeitet werden.');
     }
 }
 
-// Foto aus Speicher und UI entfernen
-async function deletePhoto(photoToDelete = currentSelectedPhoto) {
-    if (!photoToDelete || !confirm("Foto unwiderruflich löschen?")) return;
+// --- Löschen ---
+async function deletePhoto(photoToDelete = null) {
+    const photo = photoToDelete || currentPhoto;
+    if (!photo) return;
 
-    showLoading();
+    if (!confirm('Möchtest du dieses Foto wirklich löschen?')) return;
+
+    showLoading('Foto wird gelöscht...');
     try {
-        photos = photos.filter(p => p.filepath !== photoToDelete.filepath);
-        await saveToPreferences();
-        await Filesystem.deleteFile({ path: photoToDelete.filepath, directory: Directory.Data });
+        // Datei aus Filesystem löschen
+        await Filesystem.deleteFile({
+            path: photo.fileName,
+            directory: Directory.Data
+        });
 
-        if (photoToDelete === currentSelectedPhoto) {
-            closeDetail();
+        // Aus dem State entfernen
+        photos = photos.filter(p => p.fileName !== photo.fileName);
+
+        await savePhotosToPreferences();
+        await renderGallery();
+
+        if (!photoToDelete) {
+            closePhotoDetails();
         }
 
-        await loadPhotos();
-    } catch (e) {
-        console.error("Fehler beim Löschen", e);
+    } catch (error) {
+        console.error('Fehler beim Löschen:', error);
+        alert('Das Foto konnte nicht gelöscht werden.');
     } finally {
         hideLoading();
     }
 }
 
-// Event-Binding
+// --- Teilen ---
+async function sharePhoto() {
+    if (!currentPhoto) return;
+
+    try {
+        const fileUri = await Filesystem.getUri({
+            directory: Directory.Data,
+            path: currentPhoto.fileName
+        });
+
+        await Share.share({
+            title: 'Mein Foto',
+            text: 'Schau dir dieses Foto an!',
+            url: fileUri.uri,
+            dialogTitle: 'Foto teilen'
+        });
+    } catch (error) {
+        console.error('Fehler beim Teilen:', error);
+    }
+}
+
+// --- Ladeanzeige ---
+function showLoading(message = 'Bitte warten...') {
+    loadingMessage.textContent = message;
+    loadingIndicator.classList.remove('hidden');
+}
+
+function hideLoading() {
+    loadingIndicator.classList.add('hidden');
+}
+
+// --- Event-Listener ---
 cameraBtn.onclick = takePhoto;
-closeModal.onclick = closeDetail;
+closeModal.onclick = closePhotoDetails;
 editBtn.onclick = editPhoto;
 shareBtn.onclick = sharePhoto;
-deleteModalBtn.onclick = deletePhoto;
-window.onclick = (e) => { if (e.target == modal) closeDetail(); };
+deleteBtn.onclick = deletePhoto;
 
-// App initialisieren
-checkPermissions();
-loadPhotos();
+// Schließen des Modals bei Klick außerhalb
+window.onclick = (event) => {
+    if (event.target === photoModal) {
+        closePhotoDetails();
+    }
+};
+
+// Start der App
+initializeApp();

@@ -3,41 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FotoApp</title>
+    <title>Foto-App</title>
     <link rel="stylesheet" href="/src/style.css">
 </head>
 <body>
     <header>
-        <h1>FotoApp</h1>
+        <h1>Foto-App</h1>
     </header>
 
-    <main id="gallery">
-        <!-- Hier erscheinen die Fotos -->
+    <!-- Galerie-Ansicht -->
+    <main id="gallery" class="gallery">
+        <!-- Fotos werden hier dynamisch eingefügt -->
     </main>
 
-    <!-- Detail Ansicht Modal -->
-    <div id="photo-modal" class="modal">
+    <!-- Detailansicht Modal -->
+    <div id="photoModal" class="modal hidden">
         <div class="modal-content">
-            <span class="close-modal">&times;</span>
-            <img id="modal-img" src="" alt="Vollbild Foto">
-            <p id="photo-meta" style="color: white; font-size: 0.8rem; margin: 10px 0;"></p>
+            <span id="closeModal" class="close">&times;</span>
+            <img id="modalImage" src="" alt="Detailansicht">
+
+            <div class="metadata">
+                <p><strong>Aufnahmedatum:</strong> <span id="metaDate">Nicht verfügbar</span></p>
+                <p><strong>Breite:</strong> <span id="metaWidth">Nicht verfügbar</span> px</p>
+                <p><strong>Höhe:</strong> <span id="metaHeight">Nicht verfügbar</span> px</p>
+            </div>
+
             <div class="modal-actions">
-                <button id="edit-btn">Bearbeiten</button>
-                <button id="share-btn" style="background-color: #2dd36f; color: white;">Teilen</button>
-                <button id="delete-modal-btn" class="danger">Löschen</button>
+                <button id="editBtn" class="btn-primary">Bearbeiten</button>
+                <button id="shareBtn" class="btn-success">Teilen</button>
+                <button id="deleteBtn" class="btn-danger">Löschen</button>
             </div>
         </div>
     </div>
 
-    <!-- Lade-Overlay -->
-    <div id="loading-overlay" class="hidden">
+    <!-- Ladeanzeige -->
+    <div id="loadingIndicator" class="loading-overlay hidden">
         <div class="spinner"></div>
-        <p>Bitte warten...</p>
+        <p id="loadingMessage">Fotos werden geladen ...</p>
     </div>
 
-    <button id="camera-btn" class="fab">
-        📸
-    </button>
+    <!-- Schwebender Button für die Kamera -->
+    <button id="cameraBtn" class="fab">📸</button>
 
     <script type="module" src="/src/main.js"></script>
 </body>

@@ -1,0 +1,6 @@
+{
+  "appId": "de.dhbw.fotoapp",
+  "appName": "Foto-App",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}
