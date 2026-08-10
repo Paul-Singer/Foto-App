@@ -301,11 +301,11 @@ function hideLoading() {
 }
 
 // --- Event-Listener ---
-cameraBtn.onclick = takePhoto;
-closeModal.onclick = closePhotoDetails;
-editBtn.onclick = editPhoto;
-shareBtn.onclick = sharePhoto;
-deleteBtn.onclick = deletePhoto;
+cameraBtn.onclick = () => takePhoto();
+closeModal.onclick = () => closePhotoDetails();
+editBtn.onclick = () => editPhoto();
+shareBtn.onclick = () => sharePhoto();
+deleteBtn.onclick = () => deletePhoto();
 
 window.onclick = (event) => {
     if (event.target === photoModal) {
