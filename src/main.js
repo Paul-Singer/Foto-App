@@ -16,7 +16,6 @@ const loadingMessage = document.getElementById('loadingMessage');
 const photoModal = document.getElementById('photoModal');
 const closeModal = document.getElementById('closeModal');
 const modalImage = document.getElementById('modalImage');
-const metaDate = document.getElementById('metaDate');
 
 // Modal Buttons
 const editBtn = document.getElementById('editBtn');
@@ -152,18 +151,7 @@ async function renderGallery() {
             img.alt = 'Galeriefoto';
             img.onclick = () => openPhotoDetails(photo, webSrc);
 
-            // Direkt-Lösch-Button (Papierkorb erhalten laut Vorgabe)
-            const delBtn = document.createElement('button');
-            delBtn.className = 'delete-gallery-btn';
-            delBtn.innerHTML = '🗑️';
-            delBtn.title = 'Löschen';
-            delBtn.onclick = (e) => {
-                e.stopPropagation();
-                deletePhoto(photo);
-            };
-
             item.appendChild(img);
-            item.appendChild(delBtn);
             galleryElement.appendChild(item);
         } catch (e) {
             console.error(`Fehler beim Laden von ${photo.fileName}:`, e);
@@ -175,10 +163,6 @@ async function renderGallery() {
 async function openPhotoDetails(photo, webSrc) {
     currentPhoto = photo;
     modalImage.src = webSrc;
-
-    // Aufnahmedatum formatieren
-    const date = new Date(photo.date);
-    metaDate.textContent = isNaN(date.getTime()) ? 'Nicht verfügbar' : date.toLocaleString('de-DE');
 
     // Bildbearbeitung nur unter Android verfügbar
     if (Capacitor.getPlatform() === 'android') {

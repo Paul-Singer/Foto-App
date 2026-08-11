@@ -19,7 +19,7 @@ Die Anwendung folgt einem modularen Aufbau in einer einzigen logischen Ebene (`m
 ### Kernfunktionen:
 1.  **Kamera-Integration:** Nutzt das `@capacitor/camera` Plugin. Fotos werden als `Base64` erfasst und direkt in das lokale App-Verzeichnis geschrieben (`writeFile`).
 2.  **Dauerhafte Speicherung:** Die Liste der Dateipfade und Zeitstempel wird über `@capacitor/preferences` gespeichert, während die physischen Bilder im `Directory.Data` des Endgeräts liegen.
-3.  **Aufnahmedatum:** Zu jedem Foto wird beim Speichern das Aufnahmedatum gespeichert und in der Detailansicht angezeigt.
+3.  **Aufnahmedatum:** Zu jedem Foto wird beim Speichern der Zeitpunkt der Aufnahme gespeichert (intern verwendet für Sortierung).
 4.  **Bildbearbeitung:** Unter Android wird der native Editor über das `@capawesome/capacitor-photo-editor` Plugin aufgerufen. Ein Cache-Busting-Mechanismus (`updatedAt`) stellt sicher, dass Änderungen sofort sichtbar sind.
 5.  **Benutzerführung (UX):** Ein zentrales Lade-Overlay (`loading-overlay`) informiert den Nutzer bei asynchronen Operationen (Laden, Speichern, Löschen, Aktualisieren).
 
@@ -34,7 +34,7 @@ Die Anwendung folgt einem modularen Aufbau in einer einzigen logischen Ebene (`m
 | Kamera-Button | Floating Action Button (FAB) mit Icon. |
 | Sofort-Anzeige | Galerie wird direkt nach der Aufnahme neu gerendert. |
 | Bearbeiten | Button in Detailansicht öffnet nativen Android-Editor inkl. Cache-Umgehung. |
-| Löschen | Button in Detailansicht sowie Direkt-Löschen-Button in der Galerieansicht. |
+| Löschen | Button in Detailansicht entfernt das Foto vollständig. |
 | Teilen | Integration des `Share` Plugins für Android System-Dialoge. |
 
 ## 5. Installations- & Build-Anleitung
@@ -51,4 +51,4 @@ Die Anwendung folgt einem modularen Aufbau in einer einzigen logischen Ebene (`m
 4.  **Projekt in Android Studio öffnen:** `npx cap open android`
 
 ## 6. Fazit
-Die FotoApp beweist, dass moderne Mobilanwendungen auch ohne massiven Framework-Einsatz professionell und funktionsreich umgesetzt werden können. Durch den Fokus auf Vanilla JS bleibt der Code für Studenten verständlich und wartbar. Breite und Höhe werden nicht ausgewertet, da dieser Zusatz für das Dreierteam nicht erforderlich ist.
+Die FotoApp beweist, dass moderne Mobilanwendungen auch ohne massiven Framework-Einsatz professionell und funktionsreich umgesetzt werden können. Durch den Fokus auf Vanilla JS bleibt der Code für Studenten verständlich und wartbar. Datum, Uhrzeit sowie Bildabmessungen werden nicht angezeigt, um eine möglichst schlichte und fokussierte Benutzeroberfläche zu bieten.
