@@ -9,7 +9,7 @@ Dieses Projekt umfasst die Entwicklung einer hybriden Mobilanwendung zur Verwalt
 Um eine maximale Transparenz des Codes zu gewährleisten und die Wartbarkeit zu erhöhen, wurde auf komplexe Frameworks wie Vue.js, Ionic oder Angular verzichtet. Stattdessen nutzt die App:
 
 *   **Vanilla JavaScript (ES6+):** Direkte Logik-Implementierung ohne Framework-Overhead.
-*   **Capacitor 8:** Als Brückentechnologie zum Zugriff auf native Android-APIs (Kamera, Speicher, Teilen).
+*   **Capacitor 8:** Als Brückentechnologie zum Zugriff auf native Android-APIs (Kamera, Speicher).
 *   **HTML5 & CSS3:** Für ein schlichtes, responsives Design mit modernem CSS-Grid (3-Spalten-Layout).
 *   **Vite:** Als schneller Build-Tool-Bundler für die Web-Ressourcen.
 
@@ -35,7 +35,6 @@ Die Anwendung folgt einem modularen Aufbau in einer einzigen logischen Ebene (`m
 | Sofort-Anzeige | Galerie wird direkt nach der Aufnahme neu gerendert. |
 | Bearbeiten | Button in Detailansicht öffnet nativen Android-Editor inkl. Cache-Umgehung. |
 | Löschen | Button in Detailansicht entfernt das Foto vollständig. |
-| Teilen | Integration des `Share` Plugins für Android System-Dialoge. |
 
 ## 5. Installations- & Build-Anleitung
 

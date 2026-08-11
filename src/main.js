@@ -3,7 +3,6 @@ import { Capacitor } from '@capacitor/core';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Preferences } from '@capacitor/preferences';
-import { Share } from '@capacitor/share';
 import { PhotoEditor } from '@capawesome/capacitor-photo-editor';
 
 // --- DOM-Elemente ---
@@ -19,7 +18,6 @@ const modalImage = document.getElementById('modalImage');
 
 // Modal Buttons
 const editBtn = document.getElementById('editBtn');
-const shareBtn = document.getElementById('shareBtn');
 const deleteBtn = document.getElementById('deleteBtn');
 
 // --- Zustandsvariablen ---
@@ -252,28 +250,6 @@ async function deletePhoto(photoToDelete = null) {
     }
 }
 
-// --- Teilen ---
-async function sharePhoto() {
-    if (!currentPhoto) return;
-
-    try {
-        const fileUri = await Filesystem.getUri({
-            directory: Directory.Data,
-            path: currentPhoto.fileName
-        });
-
-        // Teilen auf Android erfordert FileProvider (in AndroidManifest konfiguriert)
-        await Share.share({
-            title: 'Mein Foto',
-            text: 'Schau dir dieses Foto an!',
-            url: fileUri.uri,
-            dialogTitle: 'Foto teilen'
-        });
-    } catch (error) {
-        console.error('Fehler beim Teilen:', error);
-    }
-}
-
 // --- Ladeanzeige ---
 function showLoading(message = 'Bitte warten...') {
     loadingMessage.textContent = message;
@@ -288,7 +264,6 @@ function hideLoading() {
 cameraBtn.onclick = () => takePhoto();
 closeModal.onclick = () => closePhotoDetails();
 editBtn.onclick = () => editPhoto();
-shareBtn.onclick = () => sharePhoto();
 deleteBtn.onclick = () => deletePhoto();
 
 window.onclick = (event) => {
