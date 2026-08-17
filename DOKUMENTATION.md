@@ -19,7 +19,7 @@ Die Anwendung folgt einem modularen Aufbau in einer einzigen logischen Ebene (`m
 ### Kernfunktionen:
 1.  **Kamera-Integration:** Nutzt das `@capacitor/camera` Plugin. Fotos werden als `Base64` erfasst und direkt in das lokale App-Verzeichnis geschrieben (`writeFile`).
 2.  **Dauerhafte Speicherung:** Die Liste der Dateipfade und Zeitstempel wird über `@capacitor/preferences` gespeichert, während die physischen Bilder im `Directory.Data` des Endgeräts liegen.
-3.  **Aufnahmedatum:** Zu jedem Foto wird beim Speichern der Zeitpunkt der Aufnahme gespeichert (intern verwendet für Sortierung).
+3.  **Zeitstempel:** Zu jedem Foto wird beim Speichern der Zeitpunkt der Aufnahme gespeichert (intern verwendet für Sortierung).
 4.  **Bildbearbeitung:** Unter Android wird der native Editor über das `@capawesome/capacitor-photo-editor` Plugin aufgerufen. Ein Cache-Busting-Mechanismus (`updatedAt`) stellt sicher, dass Änderungen sofort sichtbar sind.
 5.  **Benutzerführung (UX):** Ein zentrales Lade-Overlay (`loading-overlay`) informiert den Nutzer bei asynchronen Operationen (Laden, Speichern, Löschen, Aktualisieren).
 
@@ -30,7 +30,7 @@ Die Anwendung folgt einem modularen Aufbau in einer einzigen logischen Ebene (`m
 | Android Support | Vollständig integriert und als Plattform konfiguriert. |
 | Berechtigungen | Abfrage erfolgt explizit vor der ersten Kamera-Nutzung via `Camera.requestPermissions()`. |
 | Galerieansicht | 3-spaltiges CSS-Grid, quadratische Thumbnails (`aspect-ratio: 1/1`). |
-| Sortierung | Neueste Bilder werden nach Datum sortiert (`photos.sort()`) zuerst angezeigt. |
+| Sortierung | Neueste Bilder werden nach Datum sortiert zuerst angezeigt. |
 | Kamera-Button | Floating Action Button (FAB) mit Icon. |
 | Sofort-Anzeige | Galerie wird direkt nach der Aufnahme neu gerendert. |
 | Bearbeiten | Button in Detailansicht öffnet nativen Android-Editor inkl. Cache-Umgehung. |
@@ -50,4 +50,4 @@ Die Anwendung folgt einem modularen Aufbau in einer einzigen logischen Ebene (`m
 4.  **Projekt in Android Studio öffnen:** `npx cap open android`
 
 ## 6. Fazit
-Die FotoApp beweist, dass moderne Mobilanwendungen auch ohne massiven Framework-Einsatz professionell und funktionsreich umgesetzt werden können. Durch den Fokus auf Vanilla JS bleibt der Code für Studenten verständlich und wartbar. Datum, Uhrzeit sowie Bildabmessungen werden nicht angezeigt, um eine möglichst schlichte und fokussierte Benutzeroberfläche zu bieten.
+Die FotoApp beweist, dass moderne Mobilanwendungen auch ohne massiven Framework-Einsatz professionell und funktionsreich umgesetzt werden können. Durch den Fokus auf Vanilla JS bleibt der Code für Studenten verständlich und wartbar. Auf komplexe Metadaten-Anzeigen wurde bewusst verzichtet, um eine schlichte Benutzeroberfläche zu wahren.

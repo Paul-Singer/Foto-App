@@ -1,276 +1,277 @@
-// --- Imports ---
+// --- Plugins importieren ---
 import { Capacitor } from '@capacitor/core';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Preferences } from '@capacitor/preferences';
 import { PhotoEditor } from '@capawesome/capacitor-photo-editor';
 
-// --- DOM-Elemente ---
-const galleryElement = document.getElementById('gallery');
-const cameraBtn = document.getElementById('cameraBtn');
-const loadingIndicator = document.getElementById('loadingIndicator');
-const loadingMessage = document.getElementById('loadingMessage');
+// --- HTML-Elemente holen ---
+const galerieContainer = document.getElementById('gallery');
+const kameraKnopf = document.getElementById('cameraBtn');
+const ladeBildschirm = document.getElementById('loadingIndicator');
+const ladeText = document.getElementById('loadingMessage');
 
-// Modal Elemente
-const photoModal = document.getElementById('photoModal');
-const closeModal = document.getElementById('closeModal');
-const modalImage = document.getElementById('modalImage');
+// Elemente für das Detail-Fenster (Modal)
+const fotoModal = document.getElementById('photoModal');
+const schliessenKnopf = document.getElementById('closeModal');
+const modalBild = document.getElementById('modalImage');
 
-// Modal Buttons
-const editBtn = document.getElementById('editBtn');
-const deleteBtn = document.getElementById('deleteBtn');
+// Buttons im Modal
+const bearbeitenKnopf = document.getElementById('editBtn');
+const loeschenKnopf = document.getElementById('deleteBtn');
 
-// --- Zustandsvariablen ---
-const STORAGE_KEY = 'photos';
-let photos = [];
-let currentPhoto = null;
+// --- Variablen für die App ---
+const SPEICHER_SCHLUESSEL = 'photos';
+let fotoListe = []; // Hier drin merken wir uns alle Fotos
+let aktuellesFoto = null; // Das Foto, das gerade groß angezeigt wird
 
-// --- Initialisierung ---
-async function initializeApp() {
-    console.log('App wird initialisiert...');
-    await loadPhotos();
+// --- Start der App ---
+async function startApp() {
+    console.log('App wird gestartet...');
+    await fotosLaden();
 }
 
-// --- Berechtigungen ---
-async function requestCameraPermission() {
+// --- Kamera-Berechtigung abfragen ---
+async function berechtigungPruefen() {
     try {
-        const permissions = await Camera.checkPermissions();
+        const status = await Camera.checkPermissions();
 
-        if (permissions.camera !== 'granted') {
-            const requested = await Camera.requestPermissions({
+        if (status.camera !== 'granted') {
+            const anfrage = await Camera.requestPermissions({
                 permissions: ['camera']
             });
 
-            if (requested.camera !== 'granted') {
-                alert('Die Kamera-Berechtigung wird benötigt, um Fotos aufzunehmen.');
+            if (anfrage.camera !== 'granted') {
+                alert('Die App braucht Zugriff auf die Kamera, um Fotos zu machen.');
                 return false;
             }
         }
         return true;
-    } catch (error) {
-        console.error('Fehler bei Berechtigungsprüfung:', error);
+    } catch (fehler) {
+        console.error('Fehler bei der Berechtigung:', fehler);
         return false;
     }
 }
 
-// --- Kamera und Speicherung ---
-async function takePhoto() {
-    const hasPermission = await requestCameraPermission();
-    if (!hasPermission) return;
+// --- Foto aufnehmen und speichern ---
+async function fotoAufnehmen() {
+    const erlaubt = await berechtigungPruefen();
+    if (!erlaubt) return;
 
     try {
-        const photo = await Camera.getPhoto({
+        const bild = await Camera.getPhoto({
             quality: 90,
             allowEditing: false,
             resultType: CameraResultType.Base64,
             source: CameraSource.Camera
         });
 
-        showLoading('Foto wird gespeichert...');
+        ladeAnzeigen('Foto wird gespeichert...');
 
-        const now = Date.now();
-        const fileName = `photo_${now}.jpg`;
-        const date = new Date().toISOString();
+        const zeitstempel = Date.now();
+        const dateiName = `foto_${zeitstempel}.jpg`;
+        const aufnahmeDatum = new Date().toISOString();
 
-        // Datei im Dateisystem speichern
+        // Das Bild als Datei auf dem Handy speichern
         await Filesystem.writeFile({
-            path: fileName,
-            data: photo.base64String,
+            path: dateiName,
+            data: bild.base64String,
             directory: Directory.Data
         });
 
-        // Metadaten zum Array hinzufügen
-        const newPhoto = {
-            fileName: fileName,
-            date: date,
-            updatedAt: now // Zeitstempel für Cache-Busting
+        // Neues Foto-Objekt erstellen
+        const neuesFoto = {
+            fileName: dateiName,
+            date: aufnahmeDatum,
+            updatedAt: zeitstempel // Wichtig für den Cache-Schutz
         };
 
-        photos.unshift(newPhoto); // Neuestes Foto an den Anfang
-        await savePhotosToPreferences();
-        await renderGallery();
+        // Neues Foto oben in die Liste packen
+        fotoListe.unshift(neuesFoto);
 
-    } catch (error) {
-        console.error('Fehler bei der Fotoaufnahme:', error);
+        await listeSpeichern();
+        await galerieAnzeigen();
+
+    } catch (fehler) {
+        console.error('Fehler beim Fotografieren:', fehler);
     } finally {
-        hideLoading();
+        ladeVerstecken();
     }
 }
 
-async function savePhotosToPreferences() {
+// --- Fotoliste dauerhaft auf dem Handy speichern ---
+async function listeSpeichern() {
     await Preferences.set({
-        key: STORAGE_KEY,
-        value: JSON.stringify(photos)
+        key: SPEICHER_SCHLUESSEL,
+        value: JSON.stringify(fotoListe)
     });
 }
 
-// --- Galerie laden und darstellen ---
-async function loadPhotos() {
-    showLoading('Fotos werden geladen...');
+// --- Fotos aus dem Speicher laden und in die Galerie packen ---
+async function fotosLaden() {
+    ladeAnzeigen('Fotos werden geladen...');
     try {
-        const { value } = await Preferences.get({ key: STORAGE_KEY });
-        photos = value ? JSON.parse(value) : [];
+        const daten = await Preferences.get({ key: SPEICHER_SCHLUESSEL });
+        fotoListe = daten.value ? JSON.parse(daten.value) : [];
 
-        // Sortieren: Neueste zuerst
-        photos.sort((a, b) => new Date(b.date) - new Date(a.date));
+        // Neueste Fotos zuerst anzeigen (nach Datum sortieren)
+        fotoListe.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-        await renderGallery();
-    } catch (error) {
-        console.error('Fehler beim Laden der Fotos:', error);
+        await galerieAnzeigen();
+    } catch (fehler) {
+        console.error('Fehler beim Laden der Liste:', fehler);
     } finally {
-        hideLoading();
+        ladeVerstecken();
     }
 }
 
-async function renderGallery() {
-    galleryElement.innerHTML = '';
+// --- Die Galerie auf der HTML-Seite aufbauen ---
+async function galerieAnzeigen() {
+    galerieContainer.innerHTML = '';
 
-    if (photos.length === 0) {
-        galleryElement.innerHTML = '<p style="grid-column: span 3; text-align: center; padding: 20px;">Noch keine Fotos aufgenommen.</p>';
+    if (fotoListe.length === 0) {
+        galerieContainer.innerHTML = '<p style="grid-column: span 3; text-align: center; padding: 20px;">Noch keine Fotos da.</p>';
         return;
     }
 
-    for (const photo of photos) {
+    for (const foto of fotoListe) {
         try {
-            const fileUri = await Filesystem.getUri({
+            const dateiInfo = await Filesystem.getUri({
                 directory: Directory.Data,
-                path: photo.fileName
+                path: foto.fileName
             });
 
-            // Cache-Busting URL erstellen
-            const webSrc = `${Capacitor.convertFileSrc(fileUri.uri)}?v=${photo.updatedAt || Date.now()}`;
+            // Pfad für die Anzeige umwandeln und Cache-Schutz anhängen
+            const bildUrl = `${Capacitor.convertFileSrc(dateiInfo.uri)}?v=${foto.updatedAt || Date.now()}`;
 
-            // Container für Bild und Lösch-Button
-            const item = document.createElement('div');
-            item.className = 'gallery-item';
+            // Container für das Bild erstellen
+            const element = document.createElement('div');
+            element.className = 'gallery-item';
 
-            const img = document.createElement('img');
-            img.src = webSrc;
-            img.alt = 'Galeriefoto';
-            img.onclick = () => openPhotoDetails(photo, webSrc);
+            const bildVorschau = document.createElement('img');
+            bildVorschau.src = bildUrl;
+            bildVorschau.alt = 'Foto';
+            bildVorschau.onclick = () => detailAnsichtOeffnen(foto, bildUrl);
 
-            item.appendChild(img);
-            galleryElement.appendChild(item);
+            element.appendChild(bildVorschau);
+            galerieContainer.appendChild(element);
         } catch (e) {
-            console.error(`Fehler beim Laden von ${photo.fileName}:`, e);
+            console.error('Bild konnte nicht geladen werden:', foto.fileName);
         }
     }
 }
 
-// --- Detailansicht ---
-async function openPhotoDetails(photo, webSrc) {
-    currentPhoto = photo;
-    modalImage.src = webSrc;
+// --- Ein Foto groß anzeigen ---
+async function detailAnsichtOeffnen(foto, url) {
+    aktuellesFoto = foto;
+    modalBild.src = url;
 
-    // Bildbearbeitung nur unter Android verfügbar
+    // Nur unter Android zeigen wir den Bearbeiten-Button an
     if (Capacitor.getPlatform() === 'android') {
-        editBtn.classList.remove('hidden');
+        bearbeitenKnopf.classList.remove('hidden');
     } else {
-        editBtn.classList.add('hidden');
+        bearbeitenKnopf.classList.add('hidden');
     }
 
-    photoModal.classList.remove('hidden');
+    fotoModal.classList.remove('hidden');
 }
 
-function closePhotoDetails() {
-    photoModal.classList.add('hidden');
-    currentPhoto = null;
+function detailAnsichtSchliessen() {
+    fotoModal.classList.add('hidden');
+    aktuellesFoto = null;
 }
 
-// --- Bearbeiten ---
-async function editPhoto() {
-    if (!currentPhoto) return;
+// --- Foto mit dem nativen Editor bearbeiten (nur Android) ---
+async function fotoBearbeiten() {
+    if (!aktuellesFoto) return;
 
     if (Capacitor.getPlatform() !== 'android') {
-        alert('Die Bildbearbeitung ist nur unter Android verfügbar.');
+        alert('Bearbeiten geht nur auf Android.');
         return;
     }
 
     try {
-        const fileUri = await Filesystem.getUri({
+        const dateiInfo = await Filesystem.getUri({
             directory: Directory.Data,
-            path: currentPhoto.fileName
+            path: aktuellesFoto.fileName
         });
 
-        // Nativen Editor öffnen
+        // Editor öffnen
         await PhotoEditor.editPhoto({
-            path: fileUri.uri
+            path: dateiInfo.uri
         });
 
-        showLoading('Galerie wird aktualisiert...');
+        ladeAnzeigen('Galerie wird aktualisiert...');
 
-        // Cache umgehen durch Zeitstempel-Aktualisierung
-        currentPhoto.updatedAt = Date.now();
+        // Zeitstempel ändern, damit das Handy das Bild neu lädt (Cache-Busting)
+        aktuellesFoto.updatedAt = Date.now();
 
-        await savePhotosToPreferences();
-        await renderGallery();
+        await listeSpeichern();
+        await galerieAnzeigen();
 
-        // Detailansicht mit neuem Zeitstempel aktualisieren
-        const updatedWebSrc = `${Capacitor.convertFileSrc(fileUri.uri)}?v=${currentPhoto.updatedAt}`;
-        await openPhotoDetails(currentPhoto, updatedWebSrc);
+        // Auch das Bild im Modal aktualisieren
+        const neueUrl = `${Capacitor.convertFileSrc(dateiInfo.uri)}?v=${aktuellesFoto.updatedAt}`;
+        await detailAnsichtOeffnen(aktuellesFoto, neueUrl);
 
-    } catch (error) {
-        console.error('Fehler beim Bearbeiten:', error);
-        alert('Das Foto konnte nicht bearbeitet werden.');
+    } catch (fehler) {
+        console.error('Fehler beim Bearbeiten:', fehler);
+        alert('Das Bild konnte nicht bearbeitet werden.');
     } finally {
-        hideLoading();
+        ladeVerstecken();
     }
 }
 
-// --- Löschen ---
-async function deletePhoto(photoToDelete = null) {
-    const photo = photoToDelete || currentPhoto;
-    if (!photo) return;
+// --- Foto löschen ---
+async function fotoLoeschen() {
+    if (!aktuellesFoto) return;
 
-    if (!confirm('Möchtest du dieses Foto wirklich löschen?')) return;
+    if (!confirm('Willst du dieses Foto wirklich löschen?')) return;
 
-    showLoading('Foto wird gelöscht...');
+    ladeAnzeigen('Foto wird gelöscht...');
     try {
-        // Datei aus dem Dateisystem löschen
+        // Datei vom Handy löschen
         await Filesystem.deleteFile({
-            path: photo.fileName,
+            path: aktuellesFoto.fileName,
             directory: Directory.Data
         });
 
-        // Aus dem State entfernen
-        photos = photos.filter(p => p.fileName !== photo.fileName);
+        // Foto aus unserer Liste entfernen
+        fotoListe = fotoListe.filter(f => f.fileName !== aktuellesFoto.fileName);
 
-        await savePhotosToPreferences();
-        await renderGallery();
+        await listeSpeichern();
+        await galerieAnzeigen();
+        detailAnsichtSchliessen();
 
-        if (!photoToDelete) {
-            closePhotoDetails();
-        }
-
-    } catch (error) {
-        console.error('Fehler beim Löschen:', error);
-        alert('Das Foto konnte nicht gelöscht werden.');
+    } catch (fehler) {
+        console.error('Fehler beim Löschen:', fehler);
+        alert('Das Bild konnte nicht gelöscht werden.');
     } finally {
-        hideLoading();
+        ladeVerstecken();
     }
 }
 
-// --- Ladeanzeige ---
-function showLoading(message = 'Bitte warten...') {
-    loadingMessage.textContent = message;
-    loadingIndicator.classList.remove('hidden');
+// --- Hilfsfunktionen für den Lade-Bildschirm ---
+function ladeAnzeigen(nachricht = 'Bitte warten...') {
+    ladeText.textContent = nachricht;
+    ladeBildschirm.classList.remove('hidden');
 }
 
-function hideLoading() {
-    loadingIndicator.classList.add('hidden');
+function ladeVerstecken() {
+    ladeBildschirm.classList.add('hidden');
 }
 
-// --- Event-Listener ---
-cameraBtn.onclick = () => takePhoto();
-closeModal.onclick = () => closePhotoDetails();
-editBtn.onclick = () => editPhoto();
-deleteBtn.onclick = () => deletePhoto();
+// --- Klick-Ereignisse (Event Listener) festlegen ---
+kameraKnopf.onclick = () => fotoAufnehmen();
+schliessenKnopf.onclick = () => detailAnsichtSchliessen();
+bearbeitenKnopf.onclick = () => fotoBearbeiten();
+loeschenKnopf.onclick = () => fotoLoeschen();
 
+// Modal schießen, wenn man daneben klickt
 window.onclick = (event) => {
-    if (event.target === photoModal) {
-        closePhotoDetails();
+    if (event.target === fotoModal) {
+        detailAnsichtSchliessen();
     }
 };
 
-// App-Start
-initializeApp();
+// Startschuss für die App
+startApp();
