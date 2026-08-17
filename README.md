@@ -1,1 +1,0 @@
-# Genz-Foto-App
