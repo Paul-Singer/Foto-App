@@ -1,6 +1,6 @@
 // --- Imports ---
 import { Capacitor } from '@capacitor/core';
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Camera, CameraResultType, CameraSource, CameraDirection } from '@capacitor/camera';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Preferences } from '@capacitor/preferences';
 import { PhotoEditor } from '@capawesome/capacitor-photo-editor';
@@ -64,7 +64,8 @@ async function takePhoto() {
             quality: 90,
             allowEditing: false,
             resultType: CameraResultType.Base64,
-            source: CameraSource.Camera
+            source: CameraSource.Camera,
+            direction: CameraDirection.Rear // Standardmäßig die Hauptkamera nutzen
         });
 
         showLoading('Foto wird gespeichert...');
